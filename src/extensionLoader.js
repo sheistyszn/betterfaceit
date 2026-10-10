@@ -44,7 +44,7 @@ function saveConfig(updated) {
     } catch (_) {}
 }
 
-const CURRENT_VERSION = '1.0.1';
+const CURRENT_VERSION = '1.0.2';
 const UPDATE_REPO = 'sheistyszn/betterfaceit';
 const UPDATE_VERSION_URL = 'https://raw.githubusercontent.com/sheistyszn/betterfaceit/main/version.json';
 const UPDATE_ZIP_URL = 'https://github.com/sheistyszn/betterfaceit/archive/refs/heads/main.zip';
@@ -125,7 +125,84 @@ function copyDirRecursive(src, dest, ignore = []) {
     }
 }
 
-let updateStatus = { checking: false, updateAvailable: false, latestVersion: CURRENT_VERSION, downloading: false };
+let updateStatus = { checking: false, updateAvailable: false, latestVersion: CURRENT_VERSION, downloading: false, waitingForGame: false };
+
+function isCs2Running() {
+    return new Promise((resolve) => {
+        const tasklistCmd = process.env.SystemRoot
+            ? path.join(process.env.SystemRoot, 'System32', 'tasklist.exe')
+            : 'tasklist.exe';
+        execFile(tasklistCmd, ['/FI', 'IMAGENAME eq cs2.exe', '/NH'], { windowsHide: true }, (err, stdout) => {
+            if (err) return resolve(false);
+            const output = (stdout || '').toString().toLowerCase();
+            resolve(output.includes('cs2.exe'));
+        });
+    });
+}
+
+let gameWaitTimer = null;
+function waitForCs2Exit(callback) {
+    if (gameWaitTimer) {
+        clearInterval(gameWaitTimer);
+        gameWaitTimer = null;
+    }
+    writeLog('[AutoUpdate] cs2.exe is currently active. Monitoring process to defer client restart until match ends...');
+    gameWaitTimer = setInterval(async () => {
+        try {
+            const running = await isCs2Running();
+            if (!running) {
+                clearInterval(gameWaitTimer);
+                gameWaitTimer = null;
+                writeLog('[AutoUpdate] cs2.exe has terminated (match concluded). Relaunching FACEIT client now...');
+                callback();
+            }
+        } catch (err) {
+            writeLog('[AutoUpdate] Error polling cs2 status:', err.message || err);
+        }
+    }, 8000);
+}
+
+async function safeRelaunchClient(reason = 'update') {
+    const running = await isCs2Running();
+    if (running) {
+        updateStatus.waitingForGame = true;
+        writeLog(`[Client] Restart deferred (${reason}): cs2.exe is active. Postponing relaunch until match ends.`);
+        broadcastUpdateStatus({ waitingForGame: true });
+        waitForCs2Exit(() => {
+            app.relaunch();
+            app.exit(0);
+        });
+        return { success: true, waitingForGame: true };
+    }
+
+    writeLog(`[Client] cs2.exe is NOT running. Relaunching FACEIT client now (${reason})...`);
+    setTimeout(() => {
+        app.relaunch();
+        app.exit(0);
+    }, 1200);
+    return { success: true, waitingForGame: false };
+}
+
+if (electron.autoUpdater) {
+    const origQuitAndInstall = typeof electron.autoUpdater.quitAndInstall === 'function'
+        ? electron.autoUpdater.quitAndInstall.bind(electron.autoUpdater)
+        : null;
+    if (origQuitAndInstall) {
+        electron.autoUpdater.quitAndInstall = function(...args) {
+            isCs2Running().then((running) => {
+                if (running) {
+                    writeLog('[AutoUpdate] Official FACEIT client requested restart while cs2.exe is running. Deferring until match ends.');
+                    waitForCs2Exit(() => {
+                        writeLog('[AutoUpdate] cs2.exe terminated. Applying official FACEIT client update now.');
+                        origQuitAndInstall(...args);
+                    });
+                } else {
+                    origQuitAndInstall(...args);
+                }
+            });
+        };
+    }
+}
 
 async function checkForUpdates(silent = false) {
     if (updateStatus.checking || updateStatus.downloading) return updateStatus;
@@ -141,11 +218,18 @@ async function checkForUpdates(silent = false) {
             currentVersion: CURRENT_VERSION,
             latestVersion: latestVersion,
             downloading: false,
+            waitingForGame: false,
             changelog: remoteData.changelog || ''
         };
         writeLog(`[AutoUpdate] Update check complete. Current: v${CURRENT_VERSION}, Latest: v${latestVersion}, Update available: ${isNewer}`);
         if (isNewer) {
             broadcastUpdateAvailable(updateStatus);
+            if (silent) {
+                writeLog('[AutoUpdate] Background check found new version. Downloading and applying update in background...');
+                downloadAndApplyUpdate().catch(err => {
+                    writeLog('[AutoUpdate] Background auto-update error:', err.message || err);
+                });
+            }
         }
         return updateStatus;
     } catch (err) {
@@ -178,6 +262,35 @@ function broadcastUpdateAvailable(info) {
                         document.body.appendChild(toast);
                     })();
                 `).catch(() => {});
+            } catch (_) {}
+        }
+    }
+}
+
+function broadcastUpdateStatus(info) {
+    if (managerWindow && !managerWindow.isDestroyed()) {
+        try {
+            managerWindow.webContents.send('update-status', info);
+        } catch (_) {}
+    }
+    for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed() && win !== managerWindow) {
+            try {
+                if (info && info.waitingForGame) {
+                    win.webContents.executeJavaScript(`
+                        (function() {
+                            let toast = document.getElementById('faceit-update-toast');
+                            if (!toast) {
+                                toast = document.createElement('div');
+                                toast.id = 'faceit-update-toast';
+                                toast.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:99999999;background:#18191d;color:#fff;border:1px solid #ff5500;border-radius:24px;padding:8px 18px;font-family:Segoe UI,sans-serif;font-size:12px;font-weight:700;display:flex;align-items:center;gap:12px;box-shadow:0 6px 20px rgba(0,0,0,0.7);user-select:none;transition:all 0.2s ease;';
+                                document.body.appendChild(toast);
+                            }
+                            toast.onclick = null;
+                            toast.innerHTML = '<span style="color:#ff5500;">⚡ BetterFACEIT Updated:</span> <span>Will relaunch after CS2 match ends</span>';
+                        })();
+                    `).catch(() => {});
+                }
             } catch (_) {}
         }
     }
@@ -267,14 +380,11 @@ async function downloadAndApplyUpdate() {
             fs.rmSync(tempDir, { recursive: true, force: true });
         } catch (_) {}
 
-        writeLog('[AutoUpdate] Update applied successfully! Relaunching FACEIT client...');
+        updateStatus.downloading = false;
+        writeLog('[AutoUpdate] Update applied successfully! Checking if cs2.exe is running before relaunching...');
 
-        setTimeout(() => {
-            app.relaunch();
-            app.exit(0);
-        }, 1200);
-
-        return { success: true };
+        const relaunchResult = await safeRelaunchClient('update');
+        return { success: true, waitingForGame: relaunchResult.waitingForGame };
     } catch (err) {
         updateStatus.downloading = false;
         writeLog('[AutoUpdate] Failed to apply update:', err.message || err);
@@ -734,14 +844,12 @@ ipcMain.handle('open-extensions-dir', async () => {
     return true;
 });
 
-ipcMain.handle('restart-client', async () => {
-    app.relaunch();
-    app.exit();
-});
+ipcMain.handle('restart-client', async () => safeRelaunchClient('manual'));
 
 ipcMain.handle('check-for-updates', async () => checkForUpdates(false));
 ipcMain.handle('apply-update', async () => downloadAndApplyUpdate());
 ipcMain.handle('get-version', async () => ({ currentVersion: CURRENT_VERSION, updateStatus }));
+ipcMain.handle('is-cs2-running', async () => isCs2Running());
 
 ipcMain.handle('install-extension', async (_, urlOrId) => {
     return new Promise((resolve) => {
@@ -818,27 +926,53 @@ app.on('web-contents-created', (_, wc) => {
                     ::-webkit-scrollbar-thumb { background: #2e3340 !important; border-radius: 3px !important; }
                     ::-webkit-scrollbar-thumb:hover { background: #ff5500 !important; }
                     * { scrollbar-width: thin !important; scrollbar-color: #2e3340 #121316 !important; }
+                    button.absolute.right-2\\.5.bottom-2,
+                    [class*="right-2.5"][class*="bottom-2"] {
+                        display: none !important;
+                        visibility: hidden !important;
+                        opacity: 0 !important;
+                        pointer-events: none !important;
+                    }
                 `).catch(() => {});
 
                 const initZoomPct = Math.round(initialZoom * 100) + '%';
                 wc.executeJavaScript(`
                     (function() {
+                        const hideRepeek = () => {
+                            document.querySelectorAll('[class*="right-2.5"][class*="bottom-2"]').forEach(el => {
+                                el.style.setProperty('display', 'none', 'important');
+                            });
+                        };
+                        hideRepeek();
+                        const repeekObserver = new MutationObserver(hideRepeek);
+                        repeekObserver.observe(document.body, { childList: true, subtree: true });
+
                         if (document.getElementById('faceit-ext-float-dock')) return;
 
                         const dock = document.createElement('div');
                         dock.id = 'faceit-ext-float-dock';
-                        dock.style.cssText = 'position:fixed;bottom:14px;right:14px;z-index:999999;display:flex;align-items:center;background:#18191d;border:1px solid #2e3340;border-radius:20px;padding:3px 6px;box-shadow:0 4px 16px rgba(0,0,0,0.6);font-family:Segoe UI,sans-serif;user-select:none;gap:4px;';
+                        dock.style.cssText = 'position:fixed;bottom:14px;right:14px;z-index:999999;display:flex;align-items:center;background:#18191d;border:1px solid #2e3340;border-radius:20px;padding:3px 6px;box-shadow:0 4px 16px rgba(0,0,0,0.6);font-family:Segoe UI,sans-serif;user-select:none;';
 
                         const extBtn = document.createElement('div');
-                        extBtn.style.cssText = 'display:flex;align-items:center;padding:4px 10px;cursor:pointer;border-radius:14px;color:#ff5500;font-size:11px;font-weight:700;letter-spacing:0.5px;transition:all 0.15s ease;';
-                        extBtn.innerHTML = '<span style="font-size:12px;margin-right:5px;">⚡</span>BETTERFACEIT';
+                        extBtn.style.cssText = 'display:flex;align-items:center;padding:4px 8px;cursor:pointer;border-radius:14px;color:#ff5500;font-size:11px;font-weight:700;letter-spacing:0.5px;transition:all 0.15s ease;';
+                        extBtn.innerHTML = '<span style="font-size:12px;margin-right:5px;">⚡</span><span>BETTER FACEIT</span><span id="faceit-by-szn" style="color:#6b7280;font-size:9.5px;font-weight:600;margin-left:5px;letter-spacing:0.2px;text-transform:none;transition:color 0.15s ease;">by -szn</span>';
                         extBtn.title = 'BetterFACEIT Settings (Ctrl+Shift+E)';
-                        extBtn.onmouseenter = function() { extBtn.style.background = '#ff5500'; extBtn.style.color = '#fff'; };
-                        extBtn.onmouseleave = function() { extBtn.style.background = 'transparent'; extBtn.style.color = '#ff5500'; };
+                        extBtn.onmouseenter = function() {
+                            extBtn.style.background = '#ff5500';
+                            extBtn.style.color = '#fff';
+                            const szn = document.getElementById('faceit-by-szn');
+                            if (szn) szn.style.color = '#ffe4d6';
+                        };
+                        extBtn.onmouseleave = function() {
+                            extBtn.style.background = 'transparent';
+                            extBtn.style.color = '#ff5500';
+                            const szn = document.getElementById('faceit-by-szn');
+                            if (szn) szn.style.color = '#6b7280';
+                        };
                         extBtn.onclick = function() { console.log('__OPEN_EXTENSIONS_MANAGER__'); };
 
                         const sep = document.createElement('div');
-                        sep.style.cssText = 'width:1px;height:16px;background:#2e3340;';
+                        sep.style.cssText = 'width:1px;height:16px;background:#2e3340;margin:0 8px;flex-shrink:0;';
 
                         const zoomGroup = document.createElement('div');
                         zoomGroup.style.cssText = 'display:flex;align-items:center;gap:3px;';
