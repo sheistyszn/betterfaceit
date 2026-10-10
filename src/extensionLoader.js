@@ -1,6 +1,8 @@
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const https = require('https');
+const http = require('http');
 const { execFile } = require('child_process');
 const electron = require('electron');
 const { app, session, Menu, MenuItem, BrowserWindow, ipcMain, shell, screen } = electron;
@@ -40,6 +42,244 @@ function saveConfig(updated) {
     try {
         fs.writeFileSync(configFile, JSON.stringify(clientConfig, null, 2), 'utf8');
     } catch (_) {}
+}
+
+const CURRENT_VERSION = '1.0.0';
+const UPDATE_REPO = 'sheistyszn/betterfaceit';
+const UPDATE_VERSION_URL = 'https://raw.githubusercontent.com/sheistyszn/betterfaceit/main/version.json';
+const UPDATE_ZIP_URL = 'https://github.com/sheistyszn/betterfaceit/archive/refs/heads/main.zip';
+
+function fetchUrl(targetUrl, maxRedirects = 5) {
+    return new Promise((resolve, reject) => {
+        if (maxRedirects < 0) return reject(new Error('Too many redirects'));
+        const client = targetUrl.startsWith('https:') ? https : http;
+        client.get(targetUrl, { headers: { 'User-Agent': 'BetterFACEIT-AutoUpdater/1.0' } }, (res) => {
+            if ([301, 302, 307, 308].includes(res.statusCode) && res.headers.location) {
+                const redirectTarget = new URL(res.headers.location, targetUrl).toString();
+                return resolve(fetchUrl(redirectTarget, maxRedirects - 1));
+            }
+            if (res.statusCode < 200 || res.statusCode >= 300) {
+                return reject(new Error(`HTTP ${res.statusCode}`));
+            }
+            let data = '';
+            res.on('data', chunk => { data += chunk; });
+            res.on('end', () => resolve(data));
+        }).on('error', reject);
+    });
+}
+
+function downloadFile(targetUrl, destPath, maxRedirects = 5) {
+    return new Promise((resolve, reject) => {
+        if (maxRedirects < 0) return reject(new Error('Too many redirects'));
+        const client = targetUrl.startsWith('https:') ? https : http;
+        client.get(targetUrl, { headers: { 'User-Agent': 'BetterFACEIT-AutoUpdater/1.0' } }, (res) => {
+            if ([301, 302, 307, 308].includes(res.statusCode) && res.headers.location) {
+                const redirectTarget = new URL(res.headers.location, targetUrl).toString();
+                return resolve(downloadFile(redirectTarget, destPath, maxRedirects - 1));
+            }
+            if (res.statusCode < 200 || res.statusCode >= 300) {
+                return reject(new Error(`HTTP ${res.statusCode}`));
+            }
+            const fileStream = fs.createWriteStream(destPath);
+            res.pipe(fileStream);
+            fileStream.on('finish', () => {
+                fileStream.close();
+                resolve(destPath);
+            });
+            fileStream.on('error', (err) => {
+                fs.unlink(destPath, () => {});
+                reject(err);
+            });
+        }).on('error', reject);
+    });
+}
+
+function compareSemver(remote, local) {
+    const r = (remote || '').replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
+    const l = (local || '').replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
+    for (let i = 0; i < Math.max(r.length, l.length); i++) {
+        const rv = r[i] || 0;
+        const lv = l[i] || 0;
+        if (rv > lv) return 1;
+        if (rv < lv) return -1;
+    }
+    return 0;
+}
+
+function copyDirRecursive(src, dest, ignore = []) {
+    if (!fs.existsSync(dest)) {
+        fs.mkdirSync(dest, { recursive: true });
+    }
+    const entries = fs.readdirSync(src, { withFileTypes: true });
+    for (const entry of entries) {
+        if (ignore.includes(entry.name)) continue;
+        const srcPath = path.join(src, entry.name);
+        const destPath = path.join(dest, entry.name);
+        if (entry.isDirectory()) {
+            copyDirRecursive(srcPath, destPath, ignore);
+        } else {
+            try {
+                fs.copyFileSync(srcPath, destPath);
+            } catch (_) {}
+        }
+    }
+}
+
+let updateStatus = { checking: false, updateAvailable: false, latestVersion: CURRENT_VERSION, downloading: false };
+
+async function checkForUpdates(silent = false) {
+    if (updateStatus.checking || updateStatus.downloading) return updateStatus;
+    updateStatus.checking = true;
+    try {
+        const rawJson = await fetchUrl(UPDATE_VERSION_URL);
+        const remoteData = JSON.parse(rawJson);
+        const latestVersion = remoteData.version || CURRENT_VERSION;
+        const isNewer = compareSemver(latestVersion, CURRENT_VERSION) > 0;
+        updateStatus = {
+            checking: false,
+            updateAvailable: isNewer,
+            currentVersion: CURRENT_VERSION,
+            latestVersion: latestVersion,
+            downloading: false,
+            changelog: remoteData.changelog || ''
+        };
+        writeLog(`[AutoUpdate] Update check complete. Current: v${CURRENT_VERSION}, Latest: v${latestVersion}, Update available: ${isNewer}`);
+        if (isNewer) {
+            broadcastUpdateAvailable(updateStatus);
+        }
+        return updateStatus;
+    } catch (err) {
+        updateStatus.checking = false;
+        writeLog('[AutoUpdate] Check failed:', err.message || err);
+        return { checking: false, updateAvailable: false, currentVersion: CURRENT_VERSION, latestVersion: CURRENT_VERSION, error: err.message };
+    }
+}
+
+function broadcastUpdateAvailable(info) {
+    if (managerWindow && !managerWindow.isDestroyed()) {
+        try {
+            managerWindow.webContents.send('update-available', info);
+        } catch (_) {}
+    }
+    for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed() && win !== managerWindow) {
+            try {
+                win.webContents.executeJavaScript(`
+                    (function() {
+                        if (document.getElementById('faceit-update-toast')) return;
+                        const toast = document.createElement('div');
+                        toast.id = 'faceit-update-toast';
+                        toast.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:99999999;background:#18191d;color:#fff;border:1px solid #ff5500;border-radius:24px;padding:8px 18px;font-family:Segoe UI,sans-serif;font-size:12px;font-weight:700;display:flex;align-items:center;gap:12px;box-shadow:0 6px 20px rgba(0,0,0,0.7);cursor:pointer;user-select:none;transition:all 0.2s ease;';
+                        toast.innerHTML = '<span style="color:#ff5500;">🚀 BetterFACEIT v${info.latestVersion} Available!</span> <span style="background:#ff5500;color:#fff;padding:3px 10px;border-radius:12px;font-size:11px;">Update & Relaunch</span>';
+                        toast.onclick = function() {
+                            toast.innerHTML = '<span style="color:#ff5500;">⏳ Downloading BetterFACEIT & extensions update...</span>';
+                            console.log('__TRIGGER_UPDATE__');
+                        };
+                        document.body.appendChild(toast);
+                    })();
+                `).catch(() => {});
+            } catch (_) {}
+        }
+    }
+}
+
+async function downloadAndApplyUpdate() {
+    if (updateStatus.downloading) return { success: false, error: 'Update is already downloading' };
+    updateStatus.downloading = true;
+    writeLog('[AutoUpdate] Starting download from GitHub:', UPDATE_ZIP_URL);
+
+    const tempDir = path.join(os.tmpdir(), 'betterfaceit_update_' + Date.now());
+    const zipPath = path.join(os.tmpdir(), 'betterfaceit_update.zip');
+
+    try {
+        fs.mkdirSync(tempDir, { recursive: true });
+        await downloadFile(UPDATE_ZIP_URL, zipPath);
+        writeLog('[AutoUpdate] Download complete. Extracting archive...');
+
+        await new Promise((resolve, reject) => {
+            const extractCmd = `Expand-Archive -Path '${zipPath}' -DestinationPath '${tempDir}' -Force`;
+            execFile('powershell.exe', ['-NoProfile', '-Command', extractCmd], (err, stdout, stderr) => {
+                if (err) return reject(new Error(stderr || err.message));
+                resolve();
+            });
+        });
+
+        const entries = fs.readdirSync(tempDir);
+        let extractedRoot = tempDir;
+        for (const entry of entries) {
+            const full = path.join(tempDir, entry);
+            if (fs.statSync(full).isDirectory() && fs.existsSync(path.join(full, 'src'))) {
+                extractedRoot = full;
+                break;
+            }
+        }
+
+        writeLog('[AutoUpdate] Archive extracted to:', extractedRoot);
+
+        // 1. Update runtime resources in current client (resources directory)
+        const currentResourcesDir = __dirname;
+        const extractedSrc = path.join(extractedRoot, 'src');
+        if (fs.existsSync(extractedSrc)) {
+            const runtimeFiles = ['extensionLoader.js', 'extensionsManager.html', 'managerPreload.js', 'patcher.js', 'version.json'];
+            for (const file of runtimeFiles) {
+                const srcPath = path.join(extractedSrc, file);
+                const destPath = path.join(currentResourcesDir, file);
+                if (fs.existsSync(srcPath)) {
+                    fs.copyFileSync(srcPath, destPath);
+                }
+            }
+        }
+
+        // 2. Update Install-Extension.ps1 in extensions dir
+        const srcInstallScript = path.join(extractedSrc, 'Install-Extension.ps1');
+        if (fs.existsSync(srcInstallScript)) {
+            fs.copyFileSync(srcInstallScript, path.join(extensionsDir, 'Install-Extension.ps1'));
+        }
+
+        // 3. Update version.json in extensionsDir and resources
+        const srcVersionJson = path.join(extractedRoot, 'version.json');
+        if (fs.existsSync(srcVersionJson)) {
+            fs.copyFileSync(srcVersionJson, path.join(extensionsDir, 'version.json'));
+            fs.copyFileSync(srcVersionJson, path.join(currentResourcesDir, 'version.json'));
+        }
+
+        // 4. Update all bundled extensions (Repeek, Faceit UI Cleaner, VisusGG)
+        const extractedExts = path.join(extractedRoot, 'extensions');
+        if (fs.existsSync(extractedExts)) {
+            copyDirRecursive(extractedExts, extensionsDir);
+            writeLog('[AutoUpdate] Bundled extensions synchronized and updated.');
+        }
+
+        // 5. Update local repo if it exists
+        const repoFolder = fs.existsSync(path.join(baseDir, 'BetterFACEIT'))
+            ? path.join(baseDir, 'BetterFACEIT')
+            : path.join(baseDir, 'BetterFaceit');
+        if (fs.existsSync(repoFolder)) {
+            try {
+                copyDirRecursive(extractedRoot, repoFolder, ['.git']);
+                writeLog('[AutoUpdate] Local repository files updated at:', repoFolder);
+            } catch (_) {}
+        }
+
+        // Clean up temporary files
+        try {
+            fs.unlinkSync(zipPath);
+            fs.rmSync(tempDir, { recursive: true, force: true });
+        } catch (_) {}
+
+        writeLog('[AutoUpdate] Update applied successfully! Relaunching FACEIT client...');
+
+        setTimeout(() => {
+            app.relaunch();
+            app.exit(0);
+        }, 1200);
+
+        return { success: true };
+    } catch (err) {
+        updateStatus.downloading = false;
+        writeLog('[AutoUpdate] Failed to apply update:', err.message || err);
+        return { success: false, error: err.message };
+    }
 }
 
 if (clientConfig.performanceMode) {
@@ -307,7 +547,7 @@ function openExtensionsManager() {
         minWidth: 700,
         minHeight: 480,
         center: true,
-        title: 'BetterFaceit',
+        title: 'BetterFACEIT',
         backgroundColor: '#121316',
         autoHideMenuBar: true,
         show: false,
@@ -499,6 +739,10 @@ ipcMain.handle('restart-client', async () => {
     app.exit();
 });
 
+ipcMain.handle('check-for-updates', async () => checkForUpdates(false));
+ipcMain.handle('apply-update', async () => downloadAndApplyUpdate());
+ipcMain.handle('get-version', async () => ({ currentVersion: CURRENT_VERSION, updateStatus }));
+
 ipcMain.handle('install-extension', async (_, urlOrId) => {
     return new Promise((resolve) => {
         const scriptPath = path.join(extensionsDir, 'Install-Extension.ps1');
@@ -556,6 +800,8 @@ app.on('web-contents-created', (_, wc) => {
             adjustZoom(wc, 0.05);
         } else if (message === '__ZOOM_RESET__') {
             adjustZoom(wc, 0);
+        } else if (message === '__TRIGGER_UPDATE__') {
+            downloadAndApplyUpdate();
         }
     });
 
@@ -586,7 +832,7 @@ app.on('web-contents-created', (_, wc) => {
                         const extBtn = document.createElement('div');
                         extBtn.style.cssText = 'display:flex;align-items:center;padding:4px 10px;cursor:pointer;border-radius:14px;color:#ff5500;font-size:11px;font-weight:700;letter-spacing:0.5px;transition:all 0.15s ease;';
                         extBtn.innerHTML = '<span style="font-size:12px;margin-right:5px;">⚡</span>BETTERFACEIT';
-                        extBtn.title = 'BetterFaceit Settings (Ctrl+Shift+E)';
+                        extBtn.title = 'BetterFACEIT Settings (Ctrl+Shift+E)';
                         extBtn.onmouseenter = function() { extBtn.style.background = '#ff5500'; extBtn.style.color = '#fff'; };
                         extBtn.onmouseleave = function() { extBtn.style.background = 'transparent'; extBtn.style.color = '#ff5500'; };
                         extBtn.onclick = function() { console.log('__OPEN_EXTENSIONS_MANAGER__'); };
@@ -651,7 +897,7 @@ app.on('web-contents-created', (_, wc) => {
             const menu = new Menu();
 
             menu.append(new MenuItem({
-                label: '⚡ BetterFaceit Settings...',
+                label: '⚡ BetterFACEIT Settings...',
                 click: () => openExtensionsManager()
             }));
 
@@ -761,6 +1007,14 @@ app.whenReady().then(async () => {
     }
 
     await loadAllExtensions(session.defaultSession);
+
+    setTimeout(() => {
+        checkForUpdates(true).catch(() => {});
+    }, 8000);
+
+    setInterval(() => {
+        checkForUpdates(true).catch(() => {});
+    }, 2 * 60 * 60 * 1000);
 });
 
 app.on('session-created', async (ses) => {

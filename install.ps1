@@ -3,7 +3,7 @@ param()
 
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$Host.UI.RawUI.WindowTitle = "BetterFaceit Installer"
+$Host.UI.RawUI.WindowTitle = "BetterFACEIT Installer"
 
 function Write-Step {
     param([string]$Message)
@@ -112,13 +112,13 @@ $AlreadyInstalled = (Test-Path $AsarBackupArchive) -or (Test-Path (Join-Path $Re
 
 if ($AlreadyInstalled) {
     Write-Host ""
-    Write-Host "[!] BetterFaceit is already installed on this client!" -ForegroundColor Yellow
-    $ReinstallPrompt = Read-Host "Do you want to reinstall / update BetterFaceit to the latest version? [Y/n]"
+    Write-Host "[!] BetterFACEIT is already installed on this client!" -ForegroundColor Yellow
+    $ReinstallPrompt = Read-Host "Do you want to reinstall / update BetterFACEIT to the latest version? [Y/n]"
     if (-not [string]::IsNullOrWhiteSpace($ReinstallPrompt) -and $ReinstallPrompt.Trim().ToLower() -eq 'n') {
         Write-Host "Operation cancelled. Exiting." -ForegroundColor Gray
         exit 0
     }
-    Write-Step "Updating BetterFaceit to the latest version..."
+    Write-Step "Updating BetterFACEIT to the latest version..."
 } else {
     Write-Step "Creating verified baseline backup: app.asar.backup"
     Copy-Item $AsarArchive $AsarBackupArchive -Force
@@ -129,6 +129,9 @@ $SourceComponents = Join-Path $ScriptRoot "src"
 Copy-Item (Join-Path $SourceComponents "extensionLoader.js") (Join-Path $ResourcesDir "extensionLoader.js") -Force
 Copy-Item (Join-Path $SourceComponents "extensionsManager.html") (Join-Path $ResourcesDir "extensionsManager.html") -Force
 Copy-Item (Join-Path $SourceComponents "managerPreload.js") (Join-Path $ResourcesDir "managerPreload.js") -Force
+if (Test-Path (Join-Path $SourceComponents "version.json")) {
+    Copy-Item (Join-Path $SourceComponents "version.json") (Join-Path $ResourcesDir "version.json") -Force
+}
 
 Write-Step "Applying loader hook to app.asar..."
 $PatcherModule = Join-Path $ScriptRoot "src\patcher.js"
@@ -149,6 +152,9 @@ if (-not (Test-Path $TargetExtensionsDir)) {
 
 $InstallScriptPath = Join-Path $ScriptRoot "src\Install-Extension.ps1"
 Copy-Item $InstallScriptPath (Join-Path $TargetExtensionsDir "Install-Extension.ps1") -Force
+if (Test-Path (Join-Path $ScriptRoot "version.json")) {
+    Copy-Item (Join-Path $ScriptRoot "version.json") (Join-Path $TargetExtensionsDir "version.json") -Force
+}
 
 Write-Step "Deploying bundled extensions..."
 $BundledSource = Join-Path $ScriptRoot "extensions"
@@ -171,11 +177,11 @@ if (-not (Test-Path $ConfigFile)) {
     $DefaultConfig | ConvertTo-Json | Set-Content -Path $ConfigFile -Encoding UTF8
 }
 
-Write-Success "BetterFaceit installation completed successfully."
+Write-Success "BetterFACEIT installation completed successfully."
 Write-Host ""
 Write-Host "Features & Controls:" -ForegroundColor White
 Write-Host "  - Press Ctrl+Shift+E or click 'BETTERFACEIT' in client to open settings" -ForegroundColor Gray
-Write-Host "  - Toggle Repeek, Faceit UI Cleaner, and VisusGG on/off in BetterFaceit" -ForegroundColor Gray
+Write-Host "  - Toggle Repeek, Faceit UI Cleaner, and VisusGG on/off in BetterFACEIT" -ForegroundColor Gray
 Write-Host "  - In-Client Zoom: use Ctrl+MouseWheel, Ctrl+/-, or the on-screen buttons" -ForegroundColor Gray
 Write-Host "  - Low-Resource Mode: active by default (GPU-accelerated, zero background CPU)" -ForegroundColor Gray
 Write-Host "  - Press F12 to open DevTools" -ForegroundColor Gray

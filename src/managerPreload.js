@@ -11,5 +11,9 @@ contextBridge.exposeInMainWorld('extAPI', {
     getConfig: () => ipcRenderer.invoke('get-config'),
     setConfig: (config) => ipcRenderer.invoke('set-config', config),
     setZoom: (delta) => ipcRenderer.invoke('set-zoom', delta),
-    resetZoom: () => ipcRenderer.invoke('reset-zoom')
+    resetZoom: () => ipcRenderer.invoke('reset-zoom'),
+    checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+    applyUpdate: () => ipcRenderer.invoke('apply-update'),
+    getVersion: () => ipcRenderer.invoke('get-version'),
+    onUpdateAvailable: (callback) => ipcRenderer.on('update-available', (_, data) => callback(data))
 });

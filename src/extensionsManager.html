@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BetterFaceit</title>
+    <title>BetterFACEIT</title>
     <style>
         :root {
             --bg-primary: #121316;
@@ -247,9 +247,38 @@
             flex-shrink: 0;
         }
 
-        .zoom-val-btn:hover {
-            color: var(--accent-color) !important;
-            background-color: var(--bg-tertiary) !important;
+        .version-badge {
+            font-size: 11px;
+            font-weight: 700;
+            background: rgba(255, 85, 0, 0.15);
+            color: var(--accent-color);
+            border: 1px solid rgba(255, 85, 0, 0.35);
+            border-radius: 12px;
+            padding: 2px 8px;
+            margin-left: 8px;
+            letter-spacing: 0.5px;
+            align-self: center;
+        }
+
+        .update-banner {
+            background: linear-gradient(90deg, #182230 0%, #151c27 100%);
+            border: 1px solid #ff5500;
+            border-radius: var(--radius-md);
+            padding: 12px 18px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 16px rgba(255, 85, 0, 0.2);
+            font-weight: 600;
+            font-size: 13px;
+            gap: 16px;
+        }
+
+        .update-banner span {
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .install-box {
@@ -443,7 +472,8 @@
     <header>
         <div class="header-title">
             <div class="header-icon">⚡</div>
-            <h1>BetterFaceit</h1>
+            <h1>BetterFACEIT</h1>
+            <span class="version-badge" id="version-badge">v1.0.0</span>
         </div>
         <div class="header-actions">
             <div class="zoom-btn-group" title="Adjust FACEIT Client scale (Ctrl + MouseWheel / Ctrl + +/-)">
@@ -453,10 +483,16 @@
                 <button id="btn-zoom-in" class="zoom-btn" title="Zoom In 5% (Ctrl + +)">+</button>
             </div>
             <button id="btn-toggle-perf" class="primary" title="Toggles GPU acceleration, telemetry debloat and background low CPU mode">⚡ Low-Resource Mode: ON</button>
+            <button id="btn-check-update" title="Check GitHub for BetterFACEIT & extension updates">🔄 Check Updates</button>
             <button id="btn-open-folder" title="Open extensions directory">📁 Open Folder</button>
             <button id="btn-restart-client" title="Restart FACEIT client to apply changes">🔄 Restart Client</button>
         </div>
     </header>
+
+    <div id="update-banner" class="update-banner" style="display: none;">
+        <span id="update-banner-text">🚀 New BetterFACEIT update available!</span>
+        <button id="btn-do-update" class="primary">Update & Relaunch Now</button>
+    </div>
 
     <div id="restart-banner" class="restart-banner" style="display: none;">
         <span>⚡ Extension state changed. Restart FACEIT client to apply changes.</span>
@@ -482,8 +518,8 @@
     </div>
 
     <footer>
-        <div>Shortcuts: <span class="shortcut-badge">Ctrl+Shift+E</span> BetterFaceit &nbsp;|&nbsp; <span class="shortcut-badge">Ctrl + Wheel</span> Zoom &nbsp;|&nbsp; <span class="shortcut-badge">F12</span> DevTools</div>
-        <div>BetterFaceit by szn 🇸🇰</div>
+        <div>Shortcuts: <span class="shortcut-badge">Ctrl+Shift+E</span> BetterFACEIT &nbsp;|&nbsp; <span class="shortcut-badge">Ctrl + Wheel</span> Zoom &nbsp;|&nbsp; <span class="shortcut-badge">F12</span> DevTools</div>
+        <div>BetterFACEIT by szn 🇸🇰</div>
     </footer>
 
     <script>
@@ -674,10 +710,79 @@
             }
         });
 
-        installInputEl.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') btnInstallEl.click();
+        const btnCheckUpdateEl = document.getElementById('btn-check-update');
+        const updateBannerEl = document.getElementById('update-banner');
+        const updateBannerTextEl = document.getElementById('update-banner-text');
+        const btnDoUpdateEl = document.getElementById('btn-do-update');
+        const versionBadgeEl = document.getElementById('version-badge');
+
+        async function initVersion() {
+            try {
+                if (window.extAPI.getVersion) {
+                    const vInfo = await window.extAPI.getVersion();
+                    if (vInfo && vInfo.currentVersion) {
+                        versionBadgeEl.textContent = 'v' + vInfo.currentVersion;
+                    }
+                }
+            } catch (_) {}
+        }
+
+        btnCheckUpdateEl.addEventListener('click', async () => {
+            btnCheckUpdateEl.disabled = true;
+            btnCheckUpdateEl.textContent = '⏳ Checking...';
+            try {
+                const res = await window.extAPI.checkForUpdates();
+                if (res && res.updateAvailable) {
+                    updateBannerTextEl.innerHTML = `🚀 <b>BetterFACEIT v${res.latestVersion}</b> is available on GitHub!`;
+                    updateBannerEl.style.display = 'flex';
+                    btnCheckUpdateEl.textContent = '⚡ Update Ready';
+                } else {
+                    btnCheckUpdateEl.textContent = '✅ Up to Date';
+                    setTimeout(() => {
+                        btnCheckUpdateEl.disabled = false;
+                        btnCheckUpdateEl.textContent = '🔄 Check Updates';
+                    }, 3000);
+                }
+            } catch (err) {
+                btnCheckUpdateEl.textContent = '⚠️ Check Failed';
+                setTimeout(() => {
+                    btnCheckUpdateEl.disabled = false;
+                    btnCheckUpdateEl.textContent = '🔄 Check Updates';
+                }, 3000);
+            }
         });
 
+        btnDoUpdateEl.addEventListener('click', async () => {
+            btnDoUpdateEl.disabled = true;
+            btnDoUpdateEl.textContent = '⏳ Downloading & Updating...';
+            updateBannerTextEl.textContent = '⏳ Downloading update archive & syncing extensions from GitHub...';
+            try {
+                const res = await window.extAPI.applyUpdate();
+                if (res && res.success) {
+                    updateBannerTextEl.textContent = '✅ Updated successfully! Relaunching FACEIT client...';
+                } else {
+                    alert('Update failed: ' + (res?.error || 'Unknown error'));
+                    btnDoUpdateEl.disabled = false;
+                    btnDoUpdateEl.textContent = 'Retry Update';
+                }
+            } catch (err) {
+                alert('Update error: ' + (err.message || err));
+                btnDoUpdateEl.disabled = false;
+                btnDoUpdateEl.textContent = 'Retry Update';
+            }
+        });
+
+        if (window.extAPI.onUpdateAvailable) {
+            window.extAPI.onUpdateAvailable((info) => {
+                if (info && info.updateAvailable) {
+                    updateBannerTextEl.innerHTML = `🚀 <b>BetterFACEIT v${info.latestVersion}</b> is available on GitHub!`;
+                    updateBannerEl.style.display = 'flex';
+                    btnCheckUpdateEl.textContent = '⚡ Update Ready';
+                }
+            });
+        }
+
+        initVersion();
         loadExtensions();
     </script>
 </body>

@@ -3,7 +3,7 @@ param()
 
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$Host.UI.RawUI.WindowTitle = "BetterFaceit Uninstaller"
+$Host.UI.RawUI.WindowTitle = "BetterFACEIT Uninstaller"
 
 function Write-Step {
     param([string]$Message)

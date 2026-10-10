@@ -1,10 +1,14 @@
-# ⚡ BetterFaceit
+# ⚡ BetterFACEIT
 
 [![Platform](https://img.shields.io/badge/Platform-Windows-blue.svg)](https://microsoft.com/windows)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![FACEIT Anti-Cheat](https://img.shields.io/badge/FACEIT%20Anti--Cheat-100%25%20Safe-brightgreen.svg)](https://www.faceit.com)
 
 > **The Ultimate Performance Optimizer & Chrome Extension Suite for the FACEIT Desktop Client.**  
+
+<p align="center">
+  <img src="assets/preview.png" alt="BetterFACEIT UI" width="850">
+</p>
 
 ---
 
@@ -25,16 +29,19 @@
 
 - 🔍 **Interactive Zoom & Resolution Scaling**
 
-- 🧩 **BetterFaceit Dashboard (`Ctrl + Shift + E`)**
+- 🧩 **BetterFACEIT Dashboard (`Ctrl + Shift + E`)**
+
+- 🔄 **Built-in Auto-Updater & 1-Click Sync**
+  - Automatically checks for updates from GitHub in the background, updates runtime files and extensions, and relaunches with a single click.
 
 ---
 
-## 🛡️ Is BetterFaceit Safe with FACEIT Anti-Cheat?
+## 🛡️ Is BetterFACEIT Safe with FACEIT Anti-Cheat?
 
 **Yes, 100% safe.**
 
-- **Strict Isolation:** BetterFaceit operates purely inside the **FACEIT Desktop Client's web UI** (`%LOCALAPPDATA%\FACEIT\`). It never touches game files (`cs2.exe`), never hooks system memory, and has zero interaction with **FACEIT Anti-Cheat** (`faceit.sys`).
-- **Fully Compliant:** Third-party extensions like Repeek and Faceit UI Cleaner are officially recognized and used by millions of competitive and pro players on Google Chrome, Brave, and Edge every day. BetterFaceit simply brings that exact same capability to the official Desktop Client.
+- **Strict Isolation:** BetterFACEIT operates purely inside the **FACEIT Desktop Client's web UI** (`%LOCALAPPDATA%\FACEIT\`). It never touches game files (`cs2.exe`), never hooks system memory, and has zero interaction with **FACEIT Anti-Cheat** (`faceit.sys`).
+- **Fully Compliant:** Third-party extensions like Repeek and Faceit UI Cleaner are officially recognized and used by millions of competitive and pro players on Google Chrome, Brave, and Edge every day. BetterFACEIT simply brings that exact same capability to the official Desktop Client.
 
 ---
 
