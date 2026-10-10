@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BetterFaceit</title>
+    <style>
+        :root {
+            --bg-primary: #121316;
+            --bg-secondary: #1a1c23;
+            --bg-tertiary: #242731;
+            --border-color: #2e323e;
+            --accent-color: #ff5500;
+            --accent-hover: #ff6e26;
+            --text-primary: #f0f2f5;
+            --text-secondary: #9da3b4;
+            --text-muted: #646a7d;
+            --success-color: #10b981;
+            --danger-color: #ef4444;
+            --radius-md: 10px;
+            --radius-sm: 6px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            padding: 24px;
+            min-height: 100vh;
+        }
+
+        /* Minimal Dark Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #121316;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #2a2e39;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #ff5500;
+        }
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: #2a2e39 #121316;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-color);
+            flex-wrap: nowrap;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+            flex-shrink: 1;
+        }
+
+        .header-icon {
+            font-size: 24px;
+            background: linear-gradient(135deg, #ff5500, #ff8c00);
+            padding: 6px 10px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(255, 85, 0, 0.25);
+            flex-shrink: 0;
+        }
+
+        h1 {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.4px;
+            white-space: nowrap;
+        }
+
+        .toggle-btn {
+            font-size: 11px !important;
+            font-weight: 700 !important;
+            padding: 6px 12px !important;
+            height: 30px !important;
+            border-radius: 6px !important;
+            letter-spacing: 0.3px;
+            transition: all 0.2s ease !important;
+            white-space: nowrap !important;
+        }
+
+        .toggle-btn.enabled {
+            background: rgba(16, 185, 129, 0.12) !important;
+            border-color: #10b981 !important;
+            color: #10b981 !important;
+        }
+
+        .toggle-btn.enabled:hover {
+            background: rgba(16, 185, 129, 0.24) !important;
+        }
+
+        .toggle-btn.disabled {
+            background: rgba(100, 116, 139, 0.12) !important;
+            border-color: #475569 !important;
+            color: #94a3b8 !important;
+        }
+
+        .toggle-btn.disabled:hover {
+            background: rgba(100, 116, 139, 0.24) !important;
+            color: #e2e8f0 !important;
+        }
+
+        .restart-banner {
+            background: linear-gradient(135deg, rgba(255, 85, 0, 0.15), rgba(255, 85, 0, 0.05));
+            border: 1px solid var(--accent-color);
+            border-radius: var(--radius-sm);
+            padding: 8px 14px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+            color: #ff8533;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-shrink: 0;
+            flex-wrap: nowrap;
+        }
+
+        button {
+            background-color: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            padding: 6px 12px;
+            height: 32px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            white-space: nowrap;
+            flex-shrink: 0;
+            line-height: 1;
+        }
+
+        button:hover {
+            background-color: #2f3442;
+            border-color: #3e4455;
+        }
+
+        button.primary {
+            background-color: var(--accent-color);
+            border-color: var(--accent-color);
+            color: #fff;
+        }
+
+        button.primary:hover {
+            background-color: var(--accent-hover);
+            border-color: var(--accent-hover);
+        }
+
+        .zoom-btn-group {
+            display: inline-flex;
+            align-items: center;
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 2px 6px;
+            height: 32px;
+            gap: 3px;
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+
+        .zoom-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-weight: 600;
+            padding-right: 2px;
+            user-select: none;
+            white-space: nowrap;
+        }
+
+        .zoom-btn {
+            background-color: var(--bg-tertiary) !important;
+            border: 1px solid var(--border-color) !important;
+            color: var(--text-primary) !important;
+            width: 22px !important;
+            height: 22px !important;
+            padding: 0 !important;
+            border-radius: 4px !important;
+            font-size: 13px !important;
+            font-weight: 700 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            cursor: pointer;
+            transition: all 0.15s;
+            flex-shrink: 0;
+        }
+
+        .zoom-btn:hover {
+            border-color: var(--accent-color) !important;
+            color: var(--accent-color) !important;
+            background-color: var(--bg-primary) !important;
+        }
+
+        .zoom-val-btn {
+            background: none !important;
+            border: none !important;
+            color: var(--text-primary) !important;
+            font-size: 11px !important;
+            font-weight: 700 !important;
+            padding: 2px 4px !important;
+            min-width: 36px !important;
+            text-align: center;
+            cursor: pointer;
+            border-radius: 4px !important;
+            transition: all 0.15s;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .zoom-val-btn:hover {
+            color: var(--accent-color) !important;
+            background-color: var(--bg-tertiary) !important;
+        }
+
+        .install-box {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 16px 20px;
+            margin-bottom: 24px;
+        }
+
+        .install-box-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            background-color: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 10px 14px;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            outline: none;
+            transition: border-color 0.2s;
+            user-select: text;
+            -webkit-user-select: text;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--accent-color);
+        }
+
+        .status-msg {
+            margin-top: 10px;
+            font-size: 12px;
+            display: none;
+        }
+        .status-msg.success { color: var(--success-color); display: block; }
+        .status-msg.error { color: var(--danger-color); display: block; }
+        .status-msg.info { color: var(--text-secondary); display: block; }
+
+        .section-header {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .ext-count {
+            background-color: var(--bg-tertiary);
+            color: var(--text-secondary);
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+
+        .extensions-list {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .ext-card {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 18px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            transition: border-color 0.2s ease, transform 0.1s ease;
+        }
+
+        .ext-card:hover {
+            border-color: #3e4455;
+        }
+
+        .ext-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex: 1;
+        }
+
+        .ext-icon-img {
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+            object-fit: contain;
+            background-color: var(--bg-tertiary);
+            padding: 4px;
+        }
+
+        .ext-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .ext-name-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .ext-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .ext-version {
+            font-size: 11px;
+            color: var(--text-muted);
+            background-color: var(--bg-primary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+        }
+
+        .ext-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+            max-width: 520px;
+        }
+
+        .ext-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .settings-btn {
+            background: linear-gradient(135deg, #ff5500, #ff6e26);
+            border: none;
+            color: white;
+            font-weight: 600;
+        }
+
+        .settings-btn:hover {
+            background: linear-gradient(135deg, #ff6e26, #ff8740);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        footer {
+            margin-top: 32px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .shortcut-badge {
+            background-color: var(--bg-tertiary);
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 11px;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-title">
+            <div class="header-icon">⚡</div>
+            <h1>BetterFaceit</h1>
+        </div>
+        <div class="header-actions">
+            <div class="zoom-btn-group" title="Adjust FACEIT Client scale (Ctrl + MouseWheel / Ctrl + +/-)">
+                <span class="zoom-label">🔍 Zoom:</span>
+                <button id="btn-zoom-out" class="zoom-btn" title="Zoom Out 5% (Ctrl + -)">−</button>
+                <button id="btn-zoom-reset" class="zoom-val-btn" title="Click to Reset Zoom to 100% (Ctrl + 0)">95%</button>
+                <button id="btn-zoom-in" class="zoom-btn" title="Zoom In 5% (Ctrl + +)">+</button>
+            </div>
+            <button id="btn-toggle-perf" class="primary" title="Toggles GPU acceleration, telemetry debloat and background low CPU mode">⚡ Low-Resource Mode: ON</button>
+            <button id="btn-open-folder" title="Open extensions directory">📁 Open Folder</button>
+            <button id="btn-restart-client" title="Restart FACEIT client to apply changes">🔄 Restart Client</button>
+        </div>
+    </header>
+
+    <div id="restart-banner" class="restart-banner" style="display: none;">
+        <span>⚡ Extension state changed. Restart FACEIT client to apply changes.</span>
+        <button id="btn-banner-restart" class="primary">🔄 Restart Now</button>
+    </div>
+
+    <div class="install-box">
+        <div class="install-box-title">➕ Install Chrome Extension</div>
+        <div class="input-group">
+            <input type="text" id="install-input" placeholder="Paste Chrome Web Store URL or 32-character Extension ID...">
+            <button class="primary" id="btn-install">Install Extension</button>
+        </div>
+        <div id="install-status" class="status-msg"></div>
+    </div>
+
+    <div class="section-header">
+        <span>Installed Extensions</span>
+        <span class="ext-count" id="ext-count">0</span>
+    </div>
+
+    <div class="extensions-list" id="extensions-list">
+        <div class="empty-state">Loading extensions...</div>
+    </div>
+
+    <footer>
+        <div>Shortcuts: <span class="shortcut-badge">Ctrl+Shift+E</span> BetterFaceit &nbsp;|&nbsp; <span class="shortcut-badge">Ctrl + Wheel</span> Zoom &nbsp;|&nbsp; <span class="shortcut-badge">F12</span> DevTools</div>
+        <div>BetterFaceit by szn 🇸🇰</div>
+    </footer>
+
+    <script>
+        const extListEl = document.getElementById('extensions-list');
+        const extCountEl = document.getElementById('ext-count');
+        const installInputEl = document.getElementById('install-input');
+        const btnInstallEl = document.getElementById('btn-install');
+        const installStatusEl = document.getElementById('install-status');
+        const btnOpenFolderEl = document.getElementById('btn-open-folder');
+        const btnRestartClientEl = document.getElementById('btn-restart-client');
+
+        async function loadExtensions() {
+            try {
+                const list = await window.extAPI.getExtensions();
+                extCountEl.textContent = list.length;
+                if (!list || list.length === 0) {
+                    extListEl.innerHTML = '<div class="empty-state">No extensions installed. Paste a link above to install one!</div>';
+                    return;
+                }
+
+                extListEl.innerHTML = '';
+                list.forEach(ext => {
+                    const card = document.createElement('div');
+                    card.className = 'ext-card';
+
+                    const iconSrc = ext.iconDataUrl || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="%23ff5500"><path d="M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-1.99.9-1.99 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7 1.49 0 2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5s-1.12-2.5-2.5-2.5z"/></svg>';
+
+                    let buttonsHtml = `
+                        <button class="toggle-btn ${ext.enabled ? 'enabled' : 'disabled'}" data-folder="${ext.folder}" data-enabled="${ext.enabled}" data-type="toggle" title="${ext.enabled ? 'Click to disable extension' : 'Click to enable extension'}">
+                            ${ext.enabled ? '🟢 Enabled' : '⚪ Disabled'}
+                        </button>
+                    `;
+                    if (ext.hasOptions) {
+                        buttonsHtml += `<button class="settings-btn" data-id="${ext.id}" data-type="options" ${ext.enabled ? '' : 'disabled style="opacity:0.35;cursor:not-allowed;"'}>⚙️ Settings</button>`;
+                    }
+                    if (ext.hasPopup) {
+                        buttonsHtml += `<button data-id="${ext.id}" data-type="popup" ${ext.enabled ? '' : 'disabled style="opacity:0.35;cursor:not-allowed;"'}>🪟 Popup</button>`;
+                    }
+                    buttonsHtml += `<button data-folder="${ext.folder}" data-type="folder" title="Open extension files">📂 Folder</button>`;
+
+                    card.innerHTML = `
+                        <div class="ext-left" style="${ext.enabled ? '' : 'opacity:0.75;'}">
+                            <img class="ext-icon-img" src="${iconSrc}" alt="icon" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'48\\' height=\\'48\\' viewBox=\\'0 0 24 24\\' fill=\\'%23ff5500\\'><path d=\\'M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-1.99.9-1.99 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7 1.49 0 2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5s-1.12-2.5-2.5-2.5z\\'/></svg>'">
+                            <div class="ext-info">
+                                <div class="ext-name-row">
+                                    <span class="ext-name">${ext.name}</span>
+                                    <span class="ext-version">v${ext.version}</span>
+                                </div>
+                                <div class="ext-desc">${ext.description || 'No description available.'}</div>
+                            </div>
+                        </div>
+                        <div class="ext-actions">
+                            ${buttonsHtml}
+                        </div>
+                    `;
+
+                    extListEl.appendChild(card);
+                });
+
+                // Attach listeners
+                extListEl.querySelectorAll('button').forEach(btn => {
+                    btn.addEventListener('click', async () => {
+                        const type = btn.getAttribute('data-type');
+                        const id = btn.getAttribute('data-id');
+                        const folder = btn.getAttribute('data-folder');
+                        if (type === 'toggle') {
+                            const isCurrent = btn.getAttribute('data-enabled') === 'true';
+                            await window.extAPI.toggleExtension(folder, !isCurrent);
+                            const banner = document.getElementById('restart-banner');
+                            if (banner) banner.style.display = 'flex';
+                            await loadExtensions();
+                        } else if (type === 'options' || type === 'popup') {
+                            await window.extAPI.openSettings(id, type);
+                        } else if (type === 'folder') {
+                            await window.extAPI.openFolder(folder);
+                        }
+                    });
+                });
+
+            } catch (err) {
+                extListEl.innerHTML = `<div class="empty-state" style="color: var(--danger-color)">Error loading extensions: ${err.message}</div>`;
+            }
+        }
+
+        btnOpenFolderEl.addEventListener('click', () => {
+            window.extAPI.openExtensionsDir();
+        });
+
+        const btnZoomOutEl = document.getElementById('btn-zoom-out');
+        const btnZoomResetEl = document.getElementById('btn-zoom-reset');
+        const btnZoomInEl = document.getElementById('btn-zoom-in');
+
+        function updateZoomDisplay(factor) {
+            const pct = Math.round((factor || 1.0) * 100);
+            btnZoomResetEl.textContent = `${pct}%`;
+        }
+
+        btnZoomOutEl.addEventListener('click', async () => {
+            const factor = await window.extAPI.setZoom(-0.05);
+            updateZoomDisplay(factor);
+        });
+
+        btnZoomInEl.addEventListener('click', async () => {
+            const factor = await window.extAPI.setZoom(0.05);
+            updateZoomDisplay(factor);
+        });
+
+        btnZoomResetEl.addEventListener('click', async () => {
+            const factor = await window.extAPI.resetZoom();
+            updateZoomDisplay(factor);
+        });
+
+        const btnTogglePerfEl = document.getElementById('btn-toggle-perf');
+        let clientConfig = { performanceMode: true, zoomFactor: 0.95 };
+
+        async function initConfig() {
+            try {
+                clientConfig = await window.extAPI.getConfig();
+                updatePerfButtonUI();
+                if (typeof clientConfig.zoomFactor === 'number') {
+                    updateZoomDisplay(clientConfig.zoomFactor);
+                } else {
+                    updateZoomDisplay(0.95);
+                }
+            } catch (_) {}
+        }
+
+        function updatePerfButtonUI() {
+            if (clientConfig.performanceMode) {
+                btnTogglePerfEl.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+                btnTogglePerfEl.style.borderColor = '#10b981';
+                btnTogglePerfEl.textContent = '⚡ Low-Resource Mode: ON';
+            } else {
+                btnTogglePerfEl.style.background = 'var(--bg-tertiary)';
+                btnTogglePerfEl.style.borderColor = 'var(--border-color)';
+                btnTogglePerfEl.textContent = '⚡ Low-Resource Mode: OFF';
+            }
+        }
+
+        btnTogglePerfEl.addEventListener('click', async () => {
+            const newState = !clientConfig.performanceMode;
+            clientConfig = await window.extAPI.setConfig({ performanceMode: newState });
+            updatePerfButtonUI();
+            if (confirm(`Low-Resource Mode is now ${newState ? 'ENABLED' : 'DISABLED'}.\n\nRestart FACEIT Client now to apply GPU acceleration changes?`)) {
+                window.extAPI.restartClient();
+            }
+        });
+
+        initConfig();
+
+        btnRestartClientEl.addEventListener('click', () => {
+            if (confirm('Restart FACEIT Client now?')) {
+                window.extAPI.restartClient();
+            }
+        });
+
+        const btnBannerRestartEl = document.getElementById('btn-banner-restart');
+        if (btnBannerRestartEl) {
+            btnBannerRestartEl.addEventListener('click', () => {
+                window.extAPI.restartClient();
+            });
+        }
+
+        btnInstallEl.addEventListener('click', async () => {
+            const query = installInputEl.value.trim();
+            if (!query) return;
+
+            installStatusEl.className = 'status-msg info';
+            installStatusEl.textContent = 'Downloading and installing extension, please wait...';
+            btnInstallEl.disabled = true;
+
+            try {
+                const res = await window.extAPI.installExtension(query);
+                if (res.success) {
+                    installStatusEl.className = 'status-msg success';
+                    installStatusEl.textContent = `Successfully installed "${res.name}"! Restart FACEIT client to activate.`;
+                    installInputEl.value = '';
+                    await loadExtensions();
+                } else {
+                    installStatusEl.className = 'status-msg error';
+                    installStatusEl.textContent = `Installation failed: ${res.error}`;
+                }
+            } catch (e) {
+                installStatusEl.className = 'status-msg error';
+                installStatusEl.textContent = `Error: ${e.message}`;
+            } finally {
+                btnInstallEl.disabled = false;
+            }
+        });
+
+        installInputEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') btnInstallEl.click();
+        });
+
+        loadExtensions();
+    </script>
+</body>
+</html>

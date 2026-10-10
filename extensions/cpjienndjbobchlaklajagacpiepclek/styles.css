@@ -1,0 +1,6 @@
+/* Faceit UI Cleaner - Hide unwanted UI elements */
+
+/* Class that will be applied dynamically by the content script */
+.faceit-cleaner-hidden {
+  display: none !important;
+} 
