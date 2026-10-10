@@ -7,7 +7,7 @@
 > **The Ultimate Performance Optimizer & Chrome Extension Suite for the FACEIT Desktop Client.**  
 
 <p align="center">
-  <img src="assets/preview.png" alt="BetterFACEIT UI" width="850">
+  <img src="assets/ui.png" alt="BetterFACEIT UI" width="850">
 </p>
 
 ---
