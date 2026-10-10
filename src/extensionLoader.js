@@ -44,7 +44,7 @@ function saveConfig(updated) {
     } catch (_) {}
 }
 
-const CURRENT_VERSION = '1.0.0';
+const CURRENT_VERSION = '1.0.1';
 const UPDATE_REPO = 'sheistyszn/betterfaceit';
 const UPDATE_VERSION_URL = 'https://raw.githubusercontent.com/sheistyszn/betterfaceit/main/version.json';
 const UPDATE_ZIP_URL = 'https://github.com/sheistyszn/betterfaceit/archive/refs/heads/main.zip';
