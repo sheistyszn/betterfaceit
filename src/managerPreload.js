@@ -15,7 +15,6 @@ contextBridge.exposeInMainWorld('extAPI', {
     checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
     applyUpdate: () => ipcRenderer.invoke('apply-update'),
     getVersion: () => ipcRenderer.invoke('get-version'),
-    isCs2Running: () => ipcRenderer.invoke('is-cs2-running'),
     onUpdateAvailable: (callback) => ipcRenderer.on('update-available', (_, data) => callback(data)),
     onUpdateStatus: (callback) => ipcRenderer.on('update-status', (_, data) => callback(data))
 });

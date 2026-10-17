@@ -38,8 +38,6 @@ function loadConfig() {
 // Apply configuration to hide elements
 function applyConfig() {
   try {
-    console.log("Applying config:", JSON.stringify(config));
-    
     // Apply basic hiding rules
     toggleElements('feedItems', config.hideFeedItems);
     toggleElements('navButtons', config.hideNavButtons);
@@ -72,10 +70,7 @@ function toggleElements(elementType, shouldHide) {
     const selector = elementSelectors[elementType];
     if (!selector) return;
     
-    console.log(`Toggling ${elementType} elements: ${shouldHide ? 'hide' : 'show'}`);
-    
     const elements = document.querySelectorAll(selector);
-    console.log(`Found ${elements.length} elements for selector: ${selector}`);
     
     elements.forEach(element => {
       if (shouldHide) {
@@ -123,8 +118,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // Set up mutation observer to handle dynamically loaded content
 function setupObserver() {
   try {
+    let debounceTimer = null;
     const observer = new MutationObserver((mutations) => {
-      applyConfig();
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        applyConfig();
+      }, 200);
     });
     
     observer.observe(document.body, {

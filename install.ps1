@@ -86,7 +86,9 @@ if (-not $FaceitBase) {
     exit 1
 }
 
-$AvailableAppDirs = Get-ChildItem -Path $FaceitBase -Directory -Filter "app-*" | Sort-Object Name -Descending
+$AvailableAppDirs = Get-ChildItem -Path $FaceitBase -Directory -Filter "app-*" | Sort-Object {
+    try { [version]($_.Name -replace '^app-', '') } catch { $_.Name }
+} -Descending
 
 $TargetAppDir = $AvailableAppDirs[0].FullName
 $ResourcesDir = Join-Path $TargetAppDir "resources"
@@ -95,6 +97,16 @@ $AsarArchive = Join-Path $ResourcesDir "app.asar"
 $AsarBackupArchive = Join-Path $ResourcesDir "app.asar.backup"
 
 Write-Step "Located FACEIT Client runtime: $TargetAppDir"
+
+if ($AvailableAppDirs.Count -gt 1) {
+    for ($i = 1; $i -lt $AvailableAppDirs.Count; $i++) {
+        $OldAppDir = $AvailableAppDirs[$i].FullName
+        Write-Step "Removing outdated, unusable version: $($AvailableAppDirs[$i].Name)..."
+        try {
+            Remove-Item -Path $OldAppDir -Recurse -Force -ErrorAction SilentlyContinue
+        } catch {}
+    }
+}
 
 $ActiveInstances = Get-Process -Name "FACEIT" -ErrorAction SilentlyContinue
 if ($ActiveInstances) {

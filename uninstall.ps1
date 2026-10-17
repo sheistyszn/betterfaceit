@@ -81,7 +81,9 @@ if (-not $FaceitBase) {
     exit 1
 }
 
-$AvailableAppDirs = Get-ChildItem -Path $FaceitBase -Directory -Filter "app-*" | Sort-Object Name -Descending
+$AvailableAppDirs = Get-ChildItem -Path $FaceitBase -Directory -Filter "app-*" | Sort-Object {
+    try { [version]($_.Name -replace '^app-', '') } catch { $_.Name }
+} -Descending
 
 $TargetAppDir = $AvailableAppDirs[0].FullName
 $ResourcesDir = Join-Path $TargetAppDir "resources"

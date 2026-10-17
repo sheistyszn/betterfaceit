@@ -44,7 +44,7 @@ function saveConfig(updated) {
     } catch (_) {}
 }
 
-const CURRENT_VERSION = '1.0.2';
+const CURRENT_VERSION = '1.0.3';
 const UPDATE_REPO = 'sheistyszn/betterfaceit';
 const UPDATE_VERSION_URL = 'https://raw.githubusercontent.com/sheistyszn/betterfaceit/main/version.json';
 const UPDATE_ZIP_URL = 'https://github.com/sheistyszn/betterfaceit/archive/refs/heads/main.zip';
@@ -125,83 +125,48 @@ function copyDirRecursive(src, dest, ignore = []) {
     }
 }
 
-let updateStatus = { checking: false, updateAvailable: false, latestVersion: CURRENT_VERSION, downloading: false, waitingForGame: false };
+let updateStatus = { checking: false, updateAvailable: false, latestVersion: CURRENT_VERSION, downloading: false };
 
-function isCs2Running() {
-    return new Promise((resolve) => {
-        const tasklistCmd = process.env.SystemRoot
-            ? path.join(process.env.SystemRoot, 'System32', 'tasklist.exe')
-            : 'tasklist.exe';
-        execFile(tasklistCmd, ['/FI', 'IMAGENAME eq cs2.exe', '/NH'], { windowsHide: true }, (err, stdout) => {
-            if (err) return resolve(false);
-            const output = (stdout || '').toString().toLowerCase();
-            resolve(output.includes('cs2.exe'));
-        });
-    });
-}
+function cleanOutdatedVersions() {
+    try {
+        if (!fs.existsSync(baseDir)) return;
+        const entries = fs.readdirSync(baseDir, { withFileTypes: true });
+        const appDirs = entries
+            .filter(e => e.isDirectory() && /^app-\d/.test(e.name))
+            .map(e => ({ name: e.name, path: path.join(baseDir, e.name) }))
+            .sort((a, b) => {
+                const verA = a.name.replace(/^app-/, '');
+                const verB = b.name.replace(/^app-/, '');
+                return compareSemver(verB, verA);
+            });
 
-let gameWaitTimer = null;
-function waitForCs2Exit(callback) {
-    if (gameWaitTimer) {
-        clearInterval(gameWaitTimer);
-        gameWaitTimer = null;
-    }
-    writeLog('[AutoUpdate] cs2.exe is currently active. Monitoring process to defer client restart until match ends...');
-    gameWaitTimer = setInterval(async () => {
-        try {
-            const running = await isCs2Running();
-            if (!running) {
-                clearInterval(gameWaitTimer);
-                gameWaitTimer = null;
-                writeLog('[AutoUpdate] cs2.exe has terminated (match concluded). Relaunching FACEIT client now...');
-                callback();
+        if (appDirs.length > 1) {
+            for (let i = 1; i < appDirs.length; i++) {
+                const old = appDirs[i];
+                if (!__dirname.toLowerCase().startsWith(old.path.toLowerCase())) {
+                    writeLog(`[Cleanup] Removing outdated, unusable FACEIT version: ${old.name}`);
+                    try {
+                        fs.rmSync(old.path, { recursive: true, force: true });
+                        writeLog(`[Cleanup] Successfully removed ${old.name}`);
+                    } catch (err) {
+                        writeLog(`[Cleanup] Could not remove ${old.name}:`, err.message);
+                    }
+                }
             }
-        } catch (err) {
-            writeLog('[AutoUpdate] Error polling cs2 status:', err.message || err);
         }
-    }, 8000);
+    } catch (err) {
+        writeLog('[Cleanup] Error checking old versions:', err.message);
+    }
 }
 
 async function safeRelaunchClient(reason = 'update') {
-    const running = await isCs2Running();
-    if (running) {
-        updateStatus.waitingForGame = true;
-        writeLog(`[Client] Restart deferred (${reason}): cs2.exe is active. Postponing relaunch until match ends.`);
-        broadcastUpdateStatus({ waitingForGame: true });
-        waitForCs2Exit(() => {
-            app.relaunch();
-            app.exit(0);
-        });
-        return { success: true, waitingForGame: true };
-    }
-
-    writeLog(`[Client] cs2.exe is NOT running. Relaunching FACEIT client now (${reason})...`);
+    cleanOutdatedVersions();
+    writeLog(`[Client] Relaunching FACEIT client now (${reason})...`);
     setTimeout(() => {
         app.relaunch();
         app.exit(0);
     }, 1200);
-    return { success: true, waitingForGame: false };
-}
-
-if (electron.autoUpdater) {
-    const origQuitAndInstall = typeof electron.autoUpdater.quitAndInstall === 'function'
-        ? electron.autoUpdater.quitAndInstall.bind(electron.autoUpdater)
-        : null;
-    if (origQuitAndInstall) {
-        electron.autoUpdater.quitAndInstall = function(...args) {
-            isCs2Running().then((running) => {
-                if (running) {
-                    writeLog('[AutoUpdate] Official FACEIT client requested restart while cs2.exe is running. Deferring until match ends.');
-                    waitForCs2Exit(() => {
-                        writeLog('[AutoUpdate] cs2.exe terminated. Applying official FACEIT client update now.');
-                        origQuitAndInstall(...args);
-                    });
-                } else {
-                    origQuitAndInstall(...args);
-                }
-            });
-        };
-    }
+    return { success: true };
 }
 
 async function checkForUpdates(silent = false) {
@@ -272,27 +237,6 @@ function broadcastUpdateStatus(info) {
         try {
             managerWindow.webContents.send('update-status', info);
         } catch (_) {}
-    }
-    for (const win of BrowserWindow.getAllWindows()) {
-        if (!win.isDestroyed() && win !== managerWindow) {
-            try {
-                if (info && info.waitingForGame) {
-                    win.webContents.executeJavaScript(`
-                        (function() {
-                            let toast = document.getElementById('faceit-update-toast');
-                            if (!toast) {
-                                toast = document.createElement('div');
-                                toast.id = 'faceit-update-toast';
-                                toast.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:99999999;background:#18191d;color:#fff;border:1px solid #ff5500;border-radius:24px;padding:8px 18px;font-family:Segoe UI,sans-serif;font-size:12px;font-weight:700;display:flex;align-items:center;gap:12px;box-shadow:0 6px 20px rgba(0,0,0,0.7);user-select:none;transition:all 0.2s ease;';
-                                document.body.appendChild(toast);
-                            }
-                            toast.onclick = null;
-                            toast.innerHTML = '<span style="color:#ff5500;">⚡ BetterFACEIT Updated:</span> <span>Will relaunch after CS2 match ends</span>';
-                        })();
-                    `).catch(() => {});
-                }
-            } catch (_) {}
-        }
     }
 }
 
@@ -381,10 +325,10 @@ async function downloadAndApplyUpdate() {
         } catch (_) {}
 
         updateStatus.downloading = false;
-        writeLog('[AutoUpdate] Update applied successfully! Checking if cs2.exe is running before relaunching...');
+        writeLog('[AutoUpdate] Update applied successfully! Relaunching client...');
 
-        const relaunchResult = await safeRelaunchClient('update');
-        return { success: true, waitingForGame: relaunchResult.waitingForGame };
+        await safeRelaunchClient('update');
+        return { success: true };
     } catch (err) {
         updateStatus.downloading = false;
         writeLog('[AutoUpdate] Failed to apply update:', err.message || err);
@@ -397,8 +341,8 @@ if (clientConfig.performanceMode) {
         writeLog('[Performance] Preserved GPU hardware acceleration');
     };
     try {
-        app.commandLine.appendSwitch('js-flags', '--max-old-space-size=450');
-        app.commandLine.appendSwitch('renderer-process-limit', '6');
+        app.commandLine.appendSwitch('enable-gpu-rasterization');
+        app.commandLine.appendSwitch('ignore-gpu-blocklist');
     } catch (_) {}
 }
 
@@ -407,7 +351,11 @@ const registry = {
     byName: new Map()
 };
 
+const normalizedDirs = new Set();
 function normalizeExtensionFiles(extDir) {
+    if (normalizedDirs.has(extDir)) return;
+    normalizedDirs.add(extDir);
+
     const metaDir = path.join(extDir, '_metadata');
     if (fs.existsSync(metaDir)) {
         try {
@@ -458,15 +406,38 @@ function normalizeExtensionFiles(extDir) {
     }
 }
 
+const loadedSessionExtensions = new WeakMap();
+
 async function loadExtensionInSession(ses, extDir) {
     const manifestPath = path.join(extDir, 'manifest.json');
     if (!fs.existsSync(manifestPath)) return null;
+
+    let loaded = loadedSessionExtensions.get(ses);
+    if (!loaded) {
+        loaded = new Set();
+        loadedSessionExtensions.set(ses, loaded);
+    }
+    const folder = path.basename(extDir);
+    if (loaded.has(folder)) {
+        return null;
+    }
+
+    if (typeof ses.getAllExtensions === 'function') {
+        try {
+            const existing = ses.getAllExtensions();
+            if (existing && existing.some(e => e.path === extDir)) {
+                loaded.add(folder);
+                return null;
+            }
+        } catch (_) {}
+    }
 
     normalizeExtensionFiles(extDir);
 
     try {
         const ext = await ses.loadExtension(extDir, { allowFileAccess: true });
-        const record = { ...ext, folder: path.basename(extDir) };
+        loaded.add(folder);
+        const record = { ...ext, folder };
         registry.byId.set(ext.id, record);
         registry.byName.set(ext.name, record);
         writeLog(`Loaded extension: "${ext.name}" (${ext.version}) [${ext.id}]`);
@@ -735,6 +706,16 @@ ipcMain.handle('get-config', async () => clientConfig);
 ipcMain.handle('set-config', async (_, newConfig) => {
     saveConfig(newConfig);
     writeLog('Updated client configuration:', JSON.stringify(clientConfig));
+    if (!clientConfig.performanceMode) {
+        for (const win of BrowserWindow.getAllWindows()) {
+            if (!win.isDestroyed() && win !== managerWindow) {
+                try {
+                    win.webContents.setBackgroundThrottling(false);
+                    win.webContents.setFrameRate(60);
+                } catch (_) {}
+            }
+        }
+    }
     return clientConfig;
 });
 
@@ -849,7 +830,6 @@ ipcMain.handle('restart-client', async () => safeRelaunchClient('manual'));
 ipcMain.handle('check-for-updates', async () => checkForUpdates(false));
 ipcMain.handle('apply-update', async () => downloadAndApplyUpdate());
 ipcMain.handle('get-version', async () => ({ currentVersion: CURRENT_VERSION, updateStatus }));
-ipcMain.handle('is-cs2-running', async () => isCs2Running());
 
 ipcMain.handle('install-extension', async (_, urlOrId) => {
     return new Promise((resolve) => {
@@ -872,11 +852,6 @@ ipcMain.handle('install-extension', async (_, urlOrId) => {
 });
 
 app.on('web-contents-created', (_, wc) => {
-    if (clientConfig.performanceMode) {
-        try {
-            wc.setBackgroundThrottling(true);
-        } catch (_) {}
-    }
 
     wc.on('before-input-event', (event, input) => {
         if (input.type === 'keyDown') {
@@ -926,100 +901,66 @@ app.on('web-contents-created', (_, wc) => {
                     ::-webkit-scrollbar-thumb { background: #2e3340 !important; border-radius: 3px !important; }
                     ::-webkit-scrollbar-thumb:hover { background: #ff5500 !important; }
                     * { scrollbar-width: thin !important; scrollbar-color: #2e3340 #121316 !important; }
-                    button.absolute.right-2\\.5.bottom-2,
-                    [class*="right-2.5"][class*="bottom-2"] {
-                        display: none !important;
-                        visibility: hidden !important;
-                        opacity: 0 !important;
-                        pointer-events: none !important;
-                    }
                 `).catch(() => {});
 
-                const initZoomPct = Math.round(initialZoom * 100) + '%';
                 wc.executeJavaScript(`
                     (function() {
-                        const hideRepeek = () => {
-                            document.querySelectorAll('[class*="right-2.5"][class*="bottom-2"]').forEach(el => {
-                                el.style.setProperty('display', 'none', 'important');
-                            });
-                        };
-                        hideRepeek();
-                        const repeekObserver = new MutationObserver(hideRepeek);
-                        repeekObserver.observe(document.body, { childList: true, subtree: true });
-
                         if (document.getElementById('faceit-ext-float-dock')) return;
 
                         const dock = document.createElement('div');
                         dock.id = 'faceit-ext-float-dock';
-                        dock.style.cssText = 'position:fixed;bottom:14px;right:14px;z-index:999999;display:flex;align-items:center;background:#18191d;border:1px solid #2e3340;border-radius:20px;padding:3px 6px;box-shadow:0 4px 16px rgba(0,0,0,0.6);font-family:Segoe UI,sans-serif;user-select:none;';
-
-                        const extBtn = document.createElement('div');
-                        extBtn.style.cssText = 'display:flex;align-items:center;padding:4px 8px;cursor:pointer;border-radius:14px;color:#ff5500;font-size:11px;font-weight:700;letter-spacing:0.5px;transition:all 0.15s ease;';
-                        extBtn.innerHTML = '<span style="font-size:12px;margin-right:5px;">⚡</span><span>BETTER FACEIT</span><span id="faceit-by-szn" style="color:#6b7280;font-size:9.5px;font-weight:600;margin-left:5px;letter-spacing:0.2px;text-transform:none;transition:color 0.15s ease;">by -szn</span>';
-                        extBtn.title = 'BetterFACEIT Settings (Ctrl+Shift+E)';
-                        extBtn.onmouseenter = function() {
-                            extBtn.style.background = '#ff5500';
-                            extBtn.style.color = '#fff';
-                            const szn = document.getElementById('faceit-by-szn');
-                            if (szn) szn.style.color = '#ffe4d6';
+                        dock.style.cssText = 'position:fixed;bottom:16px;right:68px;z-index:999999;display:flex;align-items:center;gap:6px;background:#18191d;border:1px solid #2e3340;border-radius:18px;padding:6px 13px;box-shadow:0 4px 16px rgba(0,0,0,0.5);font-family:Segoe UI,sans-serif;user-select:none;cursor:pointer;color:#ff5500;font-size:11px;font-weight:700;letter-spacing:0.5px;transition:right 0.25s ease, bottom 0.25s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;';
+                        dock.innerHTML = '<span style="font-size:12px;line-height:1;">⚡</span><span>BETTER FACEIT</span>';
+                        dock.title = 'BetterFACEIT Settings (Ctrl+Shift+E)';
+                        dock.onmouseenter = function() {
+                            dock.style.background = '#22252d';
+                            dock.style.borderColor = '#ff5500';
+                            dock.style.boxShadow = '0 4px 20px rgba(255,85,0,0.25)';
                         };
-                        extBtn.onmouseleave = function() {
-                            extBtn.style.background = 'transparent';
-                            extBtn.style.color = '#ff5500';
-                            const szn = document.getElementById('faceit-by-szn');
-                            if (szn) szn.style.color = '#6b7280';
+                        dock.onmouseleave = function() {
+                            dock.style.background = '#18191d';
+                            dock.style.borderColor = '#2e3340';
+                            dock.style.boxShadow = '0 4px 16px rgba(0,0,0,0.5)';
                         };
-                        extBtn.onclick = function() { console.log('__OPEN_EXTENSIONS_MANAGER__'); };
-
-                        const sep = document.createElement('div');
-                        sep.style.cssText = 'width:1px;height:16px;background:#2e3340;margin:0 8px;flex-shrink:0;';
-
-                        const zoomGroup = document.createElement('div');
-                        zoomGroup.style.cssText = 'display:flex;align-items:center;gap:3px;';
-
-                        const zoomOutBtn = document.createElement('button');
-                        zoomOutBtn.textContent = '−';
-                        zoomOutBtn.title = 'Zoom Out 5% (Ctrl + - or Ctrl + Wheel Down)';
-                        zoomOutBtn.style.cssText = 'background:#242833;color:#e1e4ea;border:none;border-radius:10px;width:22px;height:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;font-weight:bold;transition:all 0.15s ease;outline:none;';
-                        zoomOutBtn.onmouseenter = function() { zoomOutBtn.style.background = '#323746'; };
-                        zoomOutBtn.onmouseleave = function() { zoomOutBtn.style.background = '#242833'; };
-                        zoomOutBtn.onclick = function(e) { e.stopPropagation(); console.log('__ZOOM_OUT__'); };
-
-                        const zoomResetBtn = document.createElement('button');
-                        zoomResetBtn.id = 'faceit-zoom-dock-val';
-                        zoomResetBtn.textContent = '${initZoomPct}';
-                        zoomResetBtn.title = 'Click to reset zoom to 100% (Ctrl + 0)';
-                        zoomResetBtn.style.cssText = 'background:transparent;color:#9498a4;border:none;font-size:11px;font-weight:600;padding:2px 4px;cursor:pointer;min-width:32px;text-align:center;transition:color 0.15s ease;outline:none;';
-                        zoomResetBtn.onmouseenter = function() { zoomResetBtn.style.color = '#ff5500'; };
-                        zoomResetBtn.onmouseleave = function() { zoomResetBtn.style.color = '#9498a4'; };
-                        zoomResetBtn.onclick = function(e) { e.stopPropagation(); console.log('__ZOOM_RESET__'); };
-
-                        const zoomInBtn = document.createElement('button');
-                        zoomInBtn.textContent = '+';
-                        zoomInBtn.title = 'Zoom In 5% (Ctrl + + or Ctrl + Wheel Up)';
-                        zoomInBtn.style.cssText = 'background:#242833;color:#e1e4ea;border:none;border-radius:10px;width:22px;height:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;font-weight:bold;transition:all 0.15s ease;outline:none;';
-                        zoomInBtn.onmouseenter = function() { zoomInBtn.style.background = '#323746'; };
-                        zoomInBtn.onmouseleave = function() { zoomInBtn.style.background = '#242833'; };
-                        zoomInBtn.onclick = function(e) { e.stopPropagation(); console.log('__ZOOM_IN__'); };
-
-                        zoomGroup.appendChild(zoomOutBtn);
-                        zoomGroup.appendChild(zoomResetBtn);
-                        zoomGroup.appendChild(zoomInBtn);
-
-                        dock.appendChild(extBtn);
-                        dock.appendChild(sep);
-                        dock.appendChild(zoomGroup);
+                        dock.onclick = function() { console.log('__OPEN_EXTENSIONS_MANAGER__'); };
                         document.body.appendChild(dock);
 
-                        if (!window.__faceitZoomAttached) {
-                            window.__faceitZoomAttached = true;
-                            window.addEventListener('wheel', function(e) {
-                                if (e.ctrlKey) {
-                                    e.preventDefault();
-                                    console.log(e.deltaY > 0 ? '__ZOOM_OUT__' : '__ZOOM_IN__');
+                        const findRepeekBtn = () => {
+                            let btn = document.querySelector('button[class*="right-2.5"][class*="bottom-2"], [class*="right-2.5"][class*="bottom-2"]');
+                            if (btn && btn.offsetParent !== null) return btn;
+                            const hosts = document.querySelectorAll('*');
+                            for (let i = 0; i < hosts.length; i++) {
+                                const sr = hosts[i].shadowRoot;
+                                if (sr) {
+                                    btn = sr.querySelector('button[class*="right-2.5"][class*="bottom-2"], [class*="right-2.5"][class*="bottom-2"]');
+                                    if (btn && btn.offsetParent !== null) return btn;
                                 }
-                            }, { passive: false });
-                        }
+                            }
+                            return null;
+                        };
+
+                        const updateDockPos = () => {
+                            const repeekBtn = findRepeekBtn();
+                            if (repeekBtn && window.getComputedStyle(repeekBtn).display !== 'none') {
+                                const rect = repeekBtn.getBoundingClientRect();
+                                const distFromRight = Math.round(window.innerWidth - rect.left + 10);
+                                const repeekCenterBottom = window.innerHeight - (rect.top + rect.height / 2);
+                                const dockHeight = dock.offsetHeight || 28;
+                                const distFromBottom = Math.round(repeekCenterBottom - dockHeight / 2);
+                                dock.style.right = distFromRight + 'px';
+                                dock.style.bottom = distFromBottom + 'px';
+                            } else {
+                                dock.style.right = '68px';
+                                dock.style.bottom = '16px';
+                            }
+                        };
+                        updateDockPos();
+                        setTimeout(updateDockPos, 400);
+                        setTimeout(updateDockPos, 1200);
+                        setTimeout(updateDockPos, 2500);
+                        const posObserver = new MutationObserver(updateDockPos);
+                        posObserver.observe(document.body, { childList: true, subtree: true });
+                        window.addEventListener('resize', updateDockPos);
                     })();
                 `).catch(() => {});
             }
@@ -1108,18 +1049,30 @@ app.on('web-contents-created', (_, wc) => {
     });
 });
 
+app.on('will-quit', () => writeLog('[Lifecycle] app will-quit'));
+app.on('before-quit', () => writeLog('[Lifecycle] app before-quit'));
+app.on('quit', (_, code) => writeLog(`[Lifecycle] app quit with code ${code}`));
+process.on('exit', (code) => writeLog(`[Lifecycle] process exit with code ${code}`));
+process.on('uncaughtException', (err) => writeLog(`[Error] uncaughtException: ${err?.stack || err}`));
+process.on('unhandledRejection', (reason) => writeLog(`[Error] unhandledRejection: ${reason?.stack || reason}`));
+
 app.on('browser-window-created', (_, win) => {
-    if (clientConfig.performanceMode) {
-        win.on('blur', () => {
-            setTimeout(() => {
-                if (!win.isDestroyed() && !win.isFocused()) {
-                    try {
-                        win.webContents.session.clearCache().catch(() => {});
-                    } catch (_) {}
-                }
-            }, 5000);
-        });
-    }
+    writeLog(`[Window] Window created: ${win.id}`);
+    win.on('close', () => writeLog(`[Window] Window close: ${win.id}`));
+    win.on('closed', () => writeLog(`[Window] Window closed: ${win.id}`));
+    win.on('blur', () => {
+        if (!clientConfig.performanceMode) return;
+        try {
+            win.webContents.setBackgroundThrottling(true);
+            win.webContents.setFrameRate(1);
+        } catch (_) {}
+    });
+    win.on('focus', () => {
+        if (!clientConfig.performanceMode) return;
+        try {
+            win.webContents.setFrameRate(60);
+        } catch (_) {}
+    });
 });
 
 app.whenReady().then(async () => {
@@ -1131,16 +1084,26 @@ app.whenReady().then(async () => {
                 urls: [
                     '*://*.sentry.io/*',
                     '*://*.sentry-cdn.com/*',
-                    '*://*.datadoghq.com/*'
+                    '*://*.datadoghq.com/*',
+                    '*://*.segment.io/*',
+                    '*://*.segment.com/*',
+                    '*://api.amplitude.com/*',
+                    '*://*.hotjar.com/*',
+                    '*://*.google-analytics.com/*',
+                    '*://*.googletagmanager.com/*'
                 ]
             }, (_, callback) => {
                 callback({ cancel: true });
             });
-            writeLog('[Performance] Debloat active: Sentry & Datadog telemetry blocked');
+            writeLog('[Performance] Debloat active: Sentry, Datadog & telemetry trackers blocked');
         } catch (_) {}
     }
 
     await loadAllExtensions(session.defaultSession);
+
+    setTimeout(() => {
+        cleanOutdatedVersions();
+    }, 5000);
 
     setTimeout(() => {
         checkForUpdates(true).catch(() => {});
@@ -1152,7 +1115,9 @@ app.whenReady().then(async () => {
 });
 
 app.on('session-created', async (ses) => {
-    await loadAllExtensions(ses);
+    if (ses !== session.defaultSession) {
+        await loadAllExtensions(ses);
+    }
 });
 
 module.exports = {

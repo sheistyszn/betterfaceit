@@ -473,7 +473,7 @@
         <div class="header-title">
             <div class="header-icon">⚡</div>
             <h1>BetterFACEIT</h1>
-            <span class="version-badge" id="version-badge">v1.0.2</span>
+            <span class="version-badge" id="version-badge">v1.0.3</span>
         </div>
         <div class="header-actions">
             <button id="btn-toggle-perf" class="primary" title="Toggles GPU acceleration, telemetry debloat and background low CPU mode">⚡ Low-Resource Mode: ON</button>
@@ -602,7 +602,6 @@
             window.extAPI.openExtensionsDir();
         });
 
-
         const btnTogglePerfEl = document.getElementById('btn-toggle-perf');
         let clientConfig = { performanceMode: true, zoomFactor: 0.95 };
 
@@ -643,12 +642,6 @@
                     btn.textContent = '🔄 Restarting...';
                 }
                 const res = await window.extAPI.restartClient();
-                if (res && res.waitingForGame) {
-                    alert('CS2 is currently running!\n\nFACEIT client restart has been queued and will occur automatically once your game exits.');
-                    if (btn) {
-                        btn.textContent = '⏳ Restart Queued (In-Game)';
-                    }
-                }
             } catch (_) {
                 if (btn) {
                     btn.disabled = false;
@@ -746,12 +739,7 @@
             try {
                 const res = await window.extAPI.applyUpdate();
                 if (res && res.success) {
-                    if (res.waitingForGame) {
-                        updateBannerTextEl.textContent = '⏳ Update installed! CS2 is currently running. Client will restart automatically after your game.';
-                        btnDoUpdateEl.textContent = '⏳ Waiting for Game to Exit...';
-                    } else {
-                        updateBannerTextEl.textContent = '✅ Updated successfully! Relaunching FACEIT client...';
-                    }
+                    updateBannerTextEl.textContent = '✅ Updated successfully! Relaunching FACEIT client...';
                 } else {
                     alert('Update failed: ' + (res?.error || 'Unknown error'));
                     btnDoUpdateEl.disabled = false;
@@ -770,17 +758,6 @@
                     updateBannerTextEl.innerHTML = `🚀 <b>BetterFACEIT v${info.latestVersion}</b> is available on GitHub!`;
                     updateBannerEl.style.display = 'flex';
                     btnCheckUpdateEl.textContent = '⚡ Update Ready';
-                }
-            });
-        }
-
-        if (window.extAPI.onUpdateStatus) {
-            window.extAPI.onUpdateStatus((info) => {
-                if (info && info.waitingForGame) {
-                    updateBannerEl.style.display = 'flex';
-                    updateBannerTextEl.textContent = '⏳ Update installed! Client will restart automatically after CS2 exits.';
-                    btnDoUpdateEl.disabled = true;
-                    btnDoUpdateEl.textContent = '⏳ Waiting for Game to Exit...';
                 }
             });
         }
