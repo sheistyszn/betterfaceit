@@ -6,7 +6,7 @@
 
 > The Ultimate Performance Optimizer & Chrome Extension Suite for the FACEIT Desktop Client. 
 
-Turns the laggy, annoying Faceit-Browser experience into a lightweight desktop application designed to be ran alongside Counter-Strike without affecting its performance. 
+Turns the laggy and annoying FACEIT Browser experience into a lightweight desktop application designed to be ran alongside Counter-Strike without affecting its performance. 
 
 TLDR: You can have it perma-open on the second monitor for quick trashtalks without sacrificing performance :D
 
