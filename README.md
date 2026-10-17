@@ -22,6 +22,7 @@ TLDR: You can have it perma-open on the second monitor for quick trashtalks with
 
 ## ✨ Features
 
+
 - ⚡ **Low-Resource Performance Mode**
   - **GPU Acceleration:** Fixes FACEIT's default bug that forced software CPU rendering (`d3d11-warp-webgl`), reducing idle/background CPU usage from **~10% down to 0%**.
   - **Memory Optimization:** Implements automatic V8 JavaScript heap management (`--max-old-space-size=450`) and background process capping to stop the client from eating 1+ GB of RAM.
