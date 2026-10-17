@@ -11,15 +11,11 @@ Turns the laggy, annoying Faceit-Browser experience into a lightweight desktop a
 TLDR: You can have it perma-open on the second monitor for quick trashtalks without sacrificing performance :D
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/sheistyszn/betterfaceit/refs/heads/main/assets/usage.png" alt="BetterFACEIT Usage" width="450">
+  <img src="https://raw.githubusercontent.com/sheistyszn/betterfaceit/refs/heads/main/assets/preview2.png" alt="BetterFACEIT MR" width="850">
 </p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/sheistyszn/betterfaceit/refs/heads/main/assets/preview.png" alt="BetterFACEIT UI" width="850">
-</p>
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/sheistyszn/betterfaceit/refs/heads/main/assets/matchroom.png" alt="BetterFACEIT MR" width="850">
 </p>
 
 ---
