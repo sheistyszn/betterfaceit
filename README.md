@@ -11,17 +11,20 @@ Turns the laggy, annoying Faceit-Browser experience into a lightweight desktop a
 TLDR: You can have it perma-open on the second monitor for quick trashtalks without sacrificing performance :D
 
 <p align="center">
+  <img src="https://raw.githubusercontent.com/sheistyszn/betterfaceit/refs/heads/main/assets/usage.png" alt="BetterFACEIT Usage" width="450">
+</p>
+
+<p align="center">
   <img src="https://raw.githubusercontent.com/sheistyszn/betterfaceit/refs/heads/main/assets/preview.png" alt="BetterFACEIT UI" width="850">
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/sheistyszn/betterfaceit/refs/heads/main/assets/usage.png" alt="BetterFACEIT UI" width="450">
+  <img src="https://raw.githubusercontent.com/sheistyszn/betterfaceit/refs/heads/main/assets/matchroom.png" alt="BetterFACEIT MR" width="850">
 </p>
 
 ---
 
 ## ✨ Features
-
 
 - ⚡ **Low-Resource Performance Mode**
   - **GPU Acceleration:** Fixes FACEIT's default bug that forced software CPU rendering (`d3d11-warp-webgl`), reducing idle/background CPU usage from **~10% down to 0%**.
