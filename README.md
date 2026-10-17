@@ -4,10 +4,11 @@
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![FACEIT Anti-Cheat](https://img.shields.io/badge/FACEIT%20Anti--Cheat-100%25%20Safe-brightgreen.svg)](https://www.faceit.com)
 
-> **The Ultimate Performance Optimizer & Chrome Extension Suite for the FACEIT Desktop Client. 
+> **The Ultimate Performance Optimizer & Chrome Extension Suite for the FACEIT Desktop Client. **
 
 Turns the laggy, annoying Browser Experience into a lightweight desktop application designed to be ran alongside Counter-Strike without affecting its performance. 
-TLDR: You can have it perma-open on the second monitor for quick trashtalks without sacrificing performance :D**  
+
+TLDR: You can have it perma-open on the second monitor for quick trashtalks without sacrificing performance :D
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/sheistyszn/betterfaceit/refs/heads/main/assets/preview.png" alt="BetterFACEIT UI" width="850">
